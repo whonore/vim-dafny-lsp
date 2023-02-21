@@ -91,23 +91,26 @@ function! s:parse_status(status) abort
   endif
 endfunction
 
-function! s:define_sign(name, text) abort
-  call sign_define(
-    \ s:prefix . a:name,
-    \ {'text': a:text, 'texthl': s:prefix . a:name}
-  \)
+function! s:sign_info(name, text) abort
+  return {
+    \ 'name': s:prefix . a:name,
+    \ 'text': a:text,
+    \ 'texthl': s:prefix . a:name,
+  \}
 endfunction
 
 function! s:define_signs() abort
+  let l:signs = []
   for [l:status, l:info] in items(s:statuses)
     if index(s:statuses_with_mods, str2nr(l:status)) != -1
       for l:suffix in values(s:status_mod_suffix)
-        call s:define_sign(l:info.name . l:suffix, l:info.text)
+        let l:signs = add(l:signs, s:sign_info(l:info.name . l:suffix, l:info.text))
       endfor
     else
-      call s:define_sign(l:info.name, l:info.text)
+      let l:signs = add(l:signs, s:sign_info(l:info.name, l:info.text))
     endif
   endfor
+  call sign_define(l:signs)
 endfunction
 
 function! s:on_status_gutter(params) abort
@@ -118,18 +121,19 @@ function! s:on_status_gutter(params) abort
 
   call sign_unplace(s:prefix)
 
+  let l:signs = []
   for l:lnum in range(len(a:params.perLineStatus))
     let [l:status, l:mod] = s:parse_status(a:params.perLineStatus[l:lnum])
     if has_key(s:statuses, l:status)
-      call sign_place(
-        \ 0,
-        \ s:prefix,
-        \ s:prefix . s:statuses[l:status].name . s:status_mod_suffix[l:mod],
-        \ l:bnum,
-        \ {'lnum': l:lnum + 1}
-      \)
+      let l:signs = add(l:signs, {
+        \ 'buffer': l:bnum,
+        \ 'group': s:prefix,
+        \ 'lnum': l:lnum + 1,
+        \ 'name': s:prefix . s:statuses[l:status].name . s:status_mod_suffix[l:mod],
+      \})
     endif
   endfor
+  call sign_placelist(l:signs)
 endfunction
 
 function! s:on_notification(method, callback, delay) abort
